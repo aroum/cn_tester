@@ -1,0 +1,4 @@
+pyside6~=6.9.2
+pyserial~=3.5
+adafruit-nrfutil
+nuitka

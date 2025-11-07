@@ -1,0 +1,15 @@
+{
+    "layout": {
+        "hspace": "3mm",
+        "vspace": "3mm",
+        "rows": "2",
+        "cols": "2"
+    },
+    "tabs": {
+        "spacing": "15mm"
+    },
+    "cuts": {
+        "type": "mousebites",
+        "offset": "-0.2mm"
+    }
+}
