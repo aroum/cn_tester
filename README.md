@@ -20,6 +20,10 @@ Essentially, the PCB represents a direct connection of the pins of the two micro
 
 
 ## 💻 Software System
+
+![app)win_dark](pics/app_screenshot_win_dark.png)
+
+
 **Technology Stack:** 
 * Python 3.10+ 
 * PySide6 — used to create the graphical user interface (GUI).
