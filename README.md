@@ -155,7 +155,7 @@ pip install -r requirements_build.txt
 ##### Compilation:
 ``` bash
 nuitka  \
-   --standalone  \
+   --onefile  \
    --macos-create-app-bundle \
    --macos-app-icon=ICON_PATH \
    --macos-app-name=MACOS_APP_NAME \
@@ -167,7 +167,7 @@ nuitka  \
    --output-dir=build \
    --product-name="C!N Tester GUI" \
    --clean-cache=all \
-   --output-filename=cn_tester_app \
+   --output-filename=cn_tester_app.app \
    main.py
 ```
 
@@ -205,7 +205,7 @@ nuitka ^
 ##### Compilation:  
 ``` bash
 nuitka  \
-   --standalone  \
+   --onefile  \
    --enable-plugin=pyside6  \
    --include-data-files=icon/icon.png=icon/icon.png \
    --include-data-dir=mcu_firmware=mcu_firmware \
@@ -213,7 +213,7 @@ nuitka  \
    --output-dir=build \
    --product-name="C!N Tester GUI" \
    --clean-cache=all \
-   --output-filename=cn_tester_app \
+   --output-filename=cn_tester_app.bin \
    main.py
 ```
 
