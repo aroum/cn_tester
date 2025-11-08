@@ -77,11 +77,18 @@ The recommended and simplest way to use the application is by using the **pre-co
 
    ```bash
    chmod +x cn_tester_app
-   ./cn_tester_app
    ```
-3. Flashing Feature Dependency: If you plan to use the target MCU flashing function, you must have the adafruit-nrfutil utility available on your system. You can ensure this in two ways:
+3. **For Linux:** To allow the application to access /dev/ttyACM*, you need to add the current user to the dialout group:
+   ```bash
+   sudo usermod -a -G dialout $USERÍ
+   ```
+4. Flashing Feature Dependency: If you plan to use the target MCU flashing function, you must have the adafruit-nrfutil utility available on your system. You can ensure this in two ways:
      * Install via Pip : `pip install adafruit-nrfutil`.
      * Local Binary: Download a pre-compiled binary of [adafruit-nrfutil](https://github.com/adafruit/Adafruit_nRF52_nrfutil/releases) from its project releases and place it alongside the C!N tester app executable.
+5. Launch the application:
+   * **For Linux:** `./cn_tester_app_linux_x64`
+   * **macOS:** `./cn_tester_app_macos_aarch64`
+   * **Windows:** `cn_tester_win_x64.exe`
 
 You can view the logs by clicking on the image of the USB port.
   
@@ -101,6 +108,12 @@ git clone https://github.com/aroum/cn_tester.git
 #### Install Dependencies:
 ```
 pip install -r requirements.txt
+```
+
+
+if you use conda:
+```
+conda install libpython-static
 ```
 
 #### Execute the Application:
@@ -155,7 +168,7 @@ nuitka  \
    --product-name="C!N Tester GUI" \
    --clean-cache=all \
    --output-filename=cn_tester_app \
-   app/main.py
+   main.py
 ```
 
 #### 🪟 Windows Compilation
@@ -201,7 +214,7 @@ nuitka  \
    --product-name="C!N Tester GUI" \
    --clean-cache=all \
    --output-filename=cn_tester_app \
-   app/main.py
+   main.py
 ```
 
 
