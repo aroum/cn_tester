@@ -1,0 +1,120 @@
+name: Build (Nuitka)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    name: Build ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.10"]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: app/requirements_build.txt
+
+      - name: Install OS build dependencies (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-dev patchelf gcc
+
+      - name: Install Python dependencies and Nuitka
+        run: |
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r app/requirements_build.txt
+
+      - name: Show Python/Nuitka versions
+        run: |
+          python --version
+          python -m nuitka --version
+
+      - name: Build (macOS)
+        if: startsWith(matrix.os, 'macos')
+        working-directory: app
+        run: |
+          python -m nuitka \
+            --onefile \
+            --macos-create-app-bundle \
+            --macos-app-name="C!N Tester GUI" \
+            --macos-app-icon=icon/icon.icns \
+            --enable-plugin=pyside6 \
+            --include-data-files=icon/icon.png=icon/icon.png \
+            --include-data-dir=mcu_firmware=mcu_firmware \
+            --include-data-files=mcu_firmware/firmware_target.hex=mcu_firmware/firmware_target.hex \
+            --output-dir=build \
+            --product-name="C!N Tester GUI" \
+            --clean-cache=all \
+            --output-filename=cn_tester_app.app \
+            main.py
+
+      - name: Build (Windows)
+        if: startsWith(matrix.os, 'windows')
+        working-directory: app
+        run: |
+          python -m nuitka \
+            --onefile \
+            --windows-console-mode=disable \
+            --enable-plugin=pyside6 \
+            --windows-icon-from-ico=icon/icon.ico \
+            --include-data-files=icon/icon.png=icon/icon.png \
+            --include-data-dir=mcu_firmware=mcu_firmware \
+            --include-data-files=mcu_firmware/firmware_target.hex=mcu_firmware/firmware_target.hex \
+            --output-dir=build \
+            --product-name="C!N Tester GUI" \
+            --file-version=0.1.0 \
+            --clean-cache=all \
+            --msvc=latest \
+            --output-filename=cn_tester_app.exe \
+            main.py
+
+      - name: Build (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        working-directory: app
+        run: |
+          python -m nuitka \
+            --onefile \
+            --enable-plugin=pyside6 \
+            --include-data-files=icon/icon.png=icon/icon.png \
+            --include-data-dir=mcu_firmware=mcu_firmware \
+            --include-data-files=mcu_firmware/firmware_target.hex=mcu_firmware/firmware_target.hex \
+            --output-dir=build \
+            --product-name="C!N Tester GUI" \
+            --clean-cache=all \
+            --output-filename=cn_tester_app.bin \
+            main.py
+
+      - name: Upload artifact (macOS)
+        if: startsWith(matrix.os, 'macos')
+        uses: actions/upload-artifact@v4
+        with:
+          name: cn-tester-macos
+          path: app/build/cn_tester_app.app
+
+      - name: Upload artifact (Windows)
+        if: startsWith(matrix.os, 'windows')
+        uses: actions/upload-artifact@v4
+        with:
+          name: cn-tester-windows
+          path: app/build/cn_tester_app.exe
+
+      - name: Upload artifact (Linux)
+        if: startsWith(matrix.os, 'ubuntu')
+        uses: actions/upload-artifact@v4
+        with:
+          name: cn-tester-linux
+          path: app/build/cn_tester_app.bin
