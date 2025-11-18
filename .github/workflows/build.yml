@@ -66,20 +66,20 @@ jobs:
         if: startsWith(matrix.os, 'windows')
         working-directory: app
         run: |
-          python -m nuitka \
-            --onefile \
-            --windows-console-mode=disable \
-            --enable-plugin=pyside6 \
-            --windows-icon-from-ico=icon/icon.ico \
-            --include-data-files=icon/icon.png=icon/icon.png \
-            --include-data-dir=mcu_firmware=mcu_firmware \
-            --include-data-files=mcu_firmware/firmware_target.hex=mcu_firmware/firmware_target.hex \
-            --output-dir=build \
-            --product-name="C!N Tester GUI" \
-            --file-version=0.1.0 \
-            --clean-cache=all \
-            --msvc=latest \
-            --output-filename=cn_tester_app.exe \
+          python -m nuitka `
+            --onefile `
+            --windows-console-mode=disable `
+            --enable-plugin=pyside6 `
+            --windows-icon-from-ico=icon/icon.ico `
+            --include-data-files=icon/icon.png=icon/icon.png `
+            --include-data-dir=mcu_firmware=mcu_firmware `
+            --include-data-files=mcu_firmware/firmware_target.hex=mcu_firmware/firmware_target.hex `
+            --output-dir=build `
+            --product-name="C!N Tester GUI" `
+            --file-version=0.1.0 `
+            --clean-cache=all `
+            --msvc=latest `
+            --output-filename=cn_tester_app.exe `
             main.py
 
       - name: Build (Linux)
