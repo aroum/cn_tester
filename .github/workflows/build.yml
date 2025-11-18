@@ -68,6 +68,7 @@ jobs:
         run: |
           python -m nuitka `
             --onefile `
+            --assume-yes-for-downloads `
             --windows-console-mode=disable `
             --enable-plugin=pyside6 `
             --windows-icon-from-ico=icon/icon.ico `
