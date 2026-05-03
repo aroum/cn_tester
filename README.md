@@ -1,4 +1,4 @@
-d# c!n tester: ProMicro-like Microcontroller Tester
+# c!n tester: ProMicro-like Microcontroller Tester
 
 ## 🚀 Project Overview
 
@@ -10,22 +10,23 @@ The core testing logic and fundamental functionality are fully operational. Howe
 
 ## 🧱 Hardware System
 
+![H032](pics/assembly.jpg)
+
 The hardware consists of a custom Printed Circuit Board (PCB) housing two microcontrollers:
 
 1. **Master MCU:** Controls the entire testing process, communicates with the host application, and manages test sequences.
 
 2. **Target MCU:** This is the ProMicro-like microcontroller under test.
-   
-Essentially, the PCB represents a direct connection of the pins of the two microcontrollers; the same setup can be achieved using regular wires.
 
+Essentially, the PCB represents a direct connection of the pins of the two microcontrollers; the same setup can be achieved using regular wires.
 
 ## 💻 Software System
 
 ![app)win_dark](pics/app_screenshot_win_dark.png)
 
+**Technology Stack:**
 
-**Technology Stack:** 
-* Python 3.10+ 
+* Python 3.10+
 * PySide6 — used to create the graphical user interface (GUI).
 * Nuitka — used to compile Python code into standalone executable files.
 * platformio — used to compile MCU firmware.
@@ -78,10 +79,13 @@ The recommended and simplest way to use the application is by using the **pre-co
    ```bash
    chmod +x cn_tester_app
    ```
+
 3. **For Linux:** To allow the application to access /dev/ttyACM*, you need to add the current user to the dialout group:
+
    ```bash
    sudo usermod -a -G dialout $USERÍ
    ```
+
 4. Flashing Feature Dependency: If you plan to use the target MCU flashing function, you must have the adafruit-nrfutil utility available on your system. You can ensure this in two ways:
      * Install via Pip : `pip install adafruit-nrfutil`.
      * Local Binary: Download a pre-compiled binary of [adafruit-nrfutil](https://github.com/adafruit/Adafruit_nRF52_nrfutil/releases) from its project releases and place it alongside the C!N tester app executable.
@@ -96,27 +100,30 @@ You can view the logs by clicking on the image of the USB port.
 
 This method is recommended only for development or if you wish to modify the source code.
 
-#### Prerequisites:
+#### Prerequisites
 
 Python 3.10 or newer.
 
-#### Dowloand source code:
+#### Dowloand source code
+
 ```
 git clone https://github.com/aroum/cn_tester.git
 ```
 
-#### Install Dependencies:
+#### Install Dependencies
+
 ```
 pip install -r requirements.txt
 ```
 
-
 if you use conda:
+
 ```
 conda install libpython-static
 ```
 
-#### Execute the Application:
+#### Execute the Application
+
 ```
 python main.py
 ```
@@ -125,12 +132,13 @@ python main.py
 
 To compile the application into a standalone executable that does not require a local Python 3.10+ environment, use the Nuitka compiler. For details, see the [nuitka documentation](https://nuitka.net/user-documentation/user-manual.html).
 
-#### Dowloand source code:
+#### Dowloand source code
 
 ```
 git clone https://github.com/aroum/cn_tester.git
 ```
-#### Install dependencies:
+
+#### Install dependencies
 
 ```
 pip install -r requirements_build.txt
@@ -138,7 +146,8 @@ pip install -r requirements_build.txt
 
 #### 🍏 macOS Compilation
 
-##### Prerequisites:
+##### Prerequisites
+
 * [Xcode](https://apps.apple.com/us/app/xcode/id497799835?mt=12)
 * [Homebrew](https://brew.sh)
 
@@ -152,7 +161,8 @@ source /tmp/cleanenv/bin/activate
 pip install -r requirements_build.txt
 ```
 
-##### Compilation:
+##### Compilation
+
 ``` bash
 nuitka  \
    --onefile  \
@@ -172,10 +182,13 @@ nuitka  \
 ```
 
 #### 🪟 Windows Compilation
-##### Prerequisites:
-*  Visual Studio C++ build tools
 
-##### Compilation:
+##### Prerequisites
+
+* Visual Studio C++ build tools
+
+##### Compilation
+
 ``` bash
 call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 
@@ -196,13 +209,15 @@ nuitka ^
 ```
 
 #### 🐧 Linux Compilation
-##### Prerequisites:
+
+##### Prerequisites
+
 * python3-dev package
 * GCC
 * patchelf
 
+##### Compilation  
 
-##### Compilation:  
 ``` bash
 nuitka  \
    --onefile  \
@@ -216,7 +231,6 @@ nuitka  \
    --output-filename=cn_tester_app.bin \
    main.py
 ```
-
 
 ### 💡 Future Plans
 
