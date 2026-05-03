@@ -1,4 +1,4 @@
-# c!n tester: ProMicro-like Microcontroller Tester
+d# c!n tester: ProMicro-like Microcontroller Tester
 
 ## 🚀 Project Overview
 
