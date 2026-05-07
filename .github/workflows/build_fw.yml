@@ -5,7 +5,9 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+    
     steps:
       - uses: actions/checkout@v4
 
@@ -31,8 +33,23 @@ jobs:
           cd nicenano-example/supermini
           pio run
 
+      - name: Convert HEX to UF2
+        run: |
+          wget https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py
+          
+          # -i: input file .hex
+          # -c: convert to UF2
+          # -f: Family ID (for nRF52840 use 0xADA52840)
+          # -o: output file .uf2
+          python3 uf2conv.py \
+            -i nicenano-example/supermini/.pio/build/supermini/firmware.hex \
+            -c -f 0xADA52840 \
+            -o nicenano-example/supermini/.pio/build/supermini/firmware.uf2
+
       - name: Upload Artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
-          name: master-firmware  
-          path: nicenano-example/supermini/.pio/build/supermini/firmware.zip 
+          name: supermini-firmware
+          path: |
+            nicenano-example/supermini/.pio/build/supermini/firmware.zip
+            nicenano-example/supermini/.pio/build/supermini/firmware.uf2
