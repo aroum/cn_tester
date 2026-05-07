@@ -26,7 +26,13 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Build Supermini Project
+      - name: Build Supermini
         run: |
           cd nicenano-example/supermini
           pio run
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: master-firmware  
+          path: nicenano-example/supermini/.pio/build/supermini/firmware.zip 
