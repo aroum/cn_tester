@@ -36,7 +36,7 @@ jobs:
       - name: Convert HEX to UF2
         run: |
           wget https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py
-          
+          wget https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2families.json
           # -i: input file .hex
           # -c: convert to UF2
           # -f: Family ID (for nRF52840 use 0xADA52840)
