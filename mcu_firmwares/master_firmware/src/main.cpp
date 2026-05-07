@@ -90,20 +90,6 @@ bool beginAllLowPrinted = false;
 bool beginSequencePrinted = false;
 bool beginFailPrinted = false;
 
-// Utility: print dynamic pins filtered by level
-void printDynamicPinsByLevel(int level) {
-  bool first = true;
-  for (int i = 0; i < NUM_TEST_PINS; i++) {
-    int lvl = digitalRead(TEST_PINS[i]);
-    if (lvl == level) {
-      if (!first) Serial.print(", ");
-      Serial.print(TEST_LABELS[i]);
-      first = false;
-    }
-  }
-  Serial.println();
-}
-
 void toState(TestState s) {
   state = s;
   stateStartMs = millis();
@@ -153,6 +139,9 @@ void enterFlashMode() {
 // Main state machine loop: handles serial commands, button, and test stages.
 void loop() {
   unsigned long now = millis();
+  
+  // Create a buffer for the current scan
+  int currentLevels[NUM_TEST_PINS];
 
   // START command from Serial
   if (Serial.available()) {
@@ -206,9 +195,12 @@ void loop() {
         beginAllHighPrinted = true;
       }
       
+      bool allHigh = true;
       for (int i = 0; i < NUM_TEST_PINS; i++) {
-        if (digitalRead(TEST_PINS[i]) != HIGH) { allHigh = false; break; }
+        currentLevels[i] = digitalRead(TEST_PINS[i]);
+        if (currentLevels[i] != HIGH) allHigh = false;
       }
+
       if (allHigh) {
         Serial.println("Master: STAGE — ALL_HIGH: OK");
         precheckAllHighOk = true;
@@ -216,7 +208,15 @@ void loop() {
         toState(STATE_WAIT_ALL_LOW);
       } else if (now - stateStartMs > PRECHECK_TIMEOUT_MS) {
         Serial.print("Master: STAGE — ALL_HIGH: ERROR. LOW_PINS: ");
-        printDynamicPinsByLevel(LOW);
+        bool first = true;
+        for (int i = 0; i < NUM_TEST_PINS; i++) {
+          if (currentLevels[i] == LOW) {
+            if (!first) Serial.print(", ");
+            Serial.print(TEST_LABELS[i]);
+            first = false;
+          }
+        }
+        Serial.println();
         beginAllLowPrinted = false;
         toState(STATE_WAIT_ALL_LOW); // continue test regardless
       }
@@ -224,15 +224,17 @@ void loop() {
 
     case STATE_WAIT_ALL_LOW: {
       // Require: all dynamic lines LOW (including VCC as a regular line)
-      bool allLow = true;
       if (!beginAllLowPrinted) {
         Serial.println("Master: STAGE — ALL_LOW: BEGIN");
         beginAllLowPrinted = true;
       }
 
+      bool allLow = true;
       for (int i = 0; i < NUM_TEST_PINS; i++) {
-        if (digitalRead(TEST_PINS[i]) != LOW) { allLow = false; break; }
+        currentLevels[i] = digitalRead(TEST_PINS[i]);
+        if (currentLevels[i] != LOW) allLow = false;
       }
+
       if (allLow) {
         Serial.println("Master: STAGE — ALL_LOW: OK");
         precheckAllLowOk = true;
@@ -240,7 +242,15 @@ void loop() {
         toState(STATE_SEQUENCE);
       } else if (now - stateStartMs > LOW_STAGE_TIMEOUT_MS) {
         Serial.print("Master: STAGE — ALL_LOW: ERROR. HIGH_PINS: ");
-        printDynamicPinsByLevel(HIGH);
+        bool first = true;
+        for (int i = 0; i < NUM_TEST_PINS; i++) {
+          if (currentLevels[i] == HIGH) {
+            if (!first) Serial.print(", ");
+            Serial.print(TEST_LABELS[i]);
+            first = false;
+          }
+        }
+        Serial.println();
         beginSequencePrinted = false;
         toState(STATE_SEQUENCE); // continue test regardless
       }
@@ -254,55 +264,61 @@ void loop() {
       }
       
       int highCount = 0;
-      int highIdx = -1;
+      int lastHighIdx = -1;
       for (int i = 0; i < NUM_TEST_PINS; i++) {
-        int lvl = digitalRead(TEST_PINS[i]);
-        if (lvl == HIGH) {
+        currentLevels[i] = digitalRead(TEST_PINS[i]);
+        if (currentLevels[i] == HIGH) {
           highCount++;
-          highIdx = i;
+          lastHighIdx = i;
         }
       }
 
       if (highCount > 1) {
         Serial.print("Master: STAGE — SEQUENCE: ERROR. FAIL_PINS: ");
-        printDynamicPinsByLevel(HIGH);
+        bool first = true;
+        for (int i = 0; i < NUM_TEST_PINS; i++) {
+          if (currentLevels[i] == HIGH) {
+            if (!first) Serial.print(", ");
+            Serial.print(TEST_LABELS[i]);
+            first = false;
+          }
+        }
+        Serial.println();
         toState(STATE_FAIL);
         break;
       }
 
       if (highCount == 1) {
         // Detect rising edge (LOW->HIGH)
-        if (!pinWasHigh[highIdx]) {
-          pinWasHigh[highIdx] = true;
+        if (!pinWasHigh[lastHighIdx]) {
+          pinWasHigh[lastHighIdx] = true;
           Serial.print("Master: STAGE — SEQUENCE: OK — ");
-          Serial.println(TEST_LABELS[highIdx]);
+          Serial.println(TEST_LABELS[lastHighIdx]);
 
-          if (highIdx == expectedIndex) {
+          if (lastHighIdx == expectedIndex) {
             expectedIndex++;
             if (expectedIndex == NUM_TEST_PINS) {
               Serial.println("Master: STAGE — SEQUENCE: ALL OK");
               digitalWrite(LED_STATUS_PIN, HIGH);
               toState(STATE_SUCCESS);
-              break;
             }
-          } else if (highIdx > expectedIndex) {
-            Serial.print("Master: STAGE — SEQUENCE: ERROR. THE ORDER OF SEQUENCE IS VIOLATED. EXPECTED: ");
-            Serial.print(TEST_LABELS[expectedIndex]);
-            Serial.print(", RECIVED ");
-            Serial.println(TEST_LABELS[highIdx]);
+          } else {
+            if (lastHighIdx > expectedIndex) {
+              Serial.print("Master: STAGE — SEQUENCE: ERROR. THE ORDER OF SEQUENCE IS VIOLATED. EXPECTED: ");
+              Serial.print(TEST_LABELS[expectedIndex]);
+              Serial.print(", RECEIVED ");
+              Serial.println(TEST_LABELS[lastHighIdx]);
+            } else {
+              Serial.print("Master: STAGE — SEQUENCE: ERROR. REPEATED/EARLIER RAISE ");
+              Serial.println(TEST_LABELS[lastHighIdx]);
+            }
             toState(STATE_FAIL);
-            break;
-          } else { // highIdx < expectedIndex
-            Serial.print("Master: STAGE — SEQUENCE: ERROR. REPEATED/EARLIER RAISE ");
-            Serial.println(TEST_LABELS[highIdx]);
-            toState(STATE_FAIL);
-            break;
           }
         }
       } else {
-        // No pin HIGH — clear marks to catch future rising edges
+        // Update pinWasHigh tracking using currentLevels data
         for (int i = 0; i < NUM_TEST_PINS; i++) {
-          if (digitalRead(TEST_PINS[i]) == LOW) pinWasHigh[i] = false;
+          if (currentLevels[i] == LOW) pinWasHigh[i] = false;
         }
       }
 
