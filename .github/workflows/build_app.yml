@@ -1,4 +1,4 @@
-name: Build (Nuitka)
+name: Build App (Nuitka)
 
 on:
   workflow_dispatch:

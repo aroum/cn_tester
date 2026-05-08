@@ -1,6 +1,10 @@
-name: PlatformIO CI (firmware cn_tester for nice!nano)
+name: Build Firmware (PlatformIO for n!n_v2)
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
 
 jobs:
   build:

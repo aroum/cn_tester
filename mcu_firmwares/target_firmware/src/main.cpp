@@ -38,8 +38,8 @@ const int TEST_PINS[] = {
 const int NUM_TEST_PINS = sizeof(TEST_PINS) / sizeof(TEST_PINS[0]);
 
 // Protocol timings
-const int HOLD_ALL_HIGH_MS = 1000; // hold all HIGH so Master can sample
-const int HOLD_ALL_LOW_MS  = 1000; // hold all LOW so Master can sample
+const int HOLD_ALL_HIGH_MS = 2500; // hold all HIGH so Master can sample
+const int HOLD_ALL_LOW_MS  = 2500; // hold all LOW so Master can sample
 const int SEQ_HIGH_MS      = 150;  // HIGH duration for each pin in sequence
 const int SEQ_LOW_MS       = 150;  // LOW pause between sequence elements
 
