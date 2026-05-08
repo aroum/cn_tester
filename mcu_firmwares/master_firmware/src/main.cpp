@@ -189,7 +189,6 @@ void loop() {
 
     case STATE_WAIT_ALL_HIGH: {
       // Require: all dynamic lines HIGH (including VCC as a regular line)
-      bool allHigh = true;
       if (!beginAllHighPrinted) {
         Serial.println("Master: STAGE — ALL_HIGH: BEGIN");
         beginAllHighPrinted = true;
