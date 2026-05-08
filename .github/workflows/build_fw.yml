@@ -1,4 +1,4 @@
-name: PlatformIO CI (Supermini)
+name: PlatformIO CI (firmware cn_tester for nice!nano)
 
 on: [push, pull_request]
 
@@ -10,10 +10,6 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
-
-      - name: Clone nicenano-example
-        run: git clone https://github.com/bertrik/nicenano-example
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -28,28 +24,57 @@ jobs:
       - name: Install PlatformIO Core
         run: pip install --upgrade platformio
 
-      - name: Build Supermini
-        run: |
-          cd nicenano-example/supermini
-          pio run
-
-      - name: Convert HEX to UF2
+      - name: Download UF2 Utilities
         run: |
           wget https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2conv.py
           wget https://raw.githubusercontent.com/microsoft/uf2/master/utils/uf2families.json
-          # -i: input file .hex
-          # -c: convert to UF2
-          # -f: Family ID (for nRF52840 use 0xADA52840)
-          # -o: output file .uf2
-          python3 uf2conv.py \
-            -i nicenano-example/supermini/.pio/build/supermini/firmware.hex \
-            -c -f 0xADA52840 \
-            -o nicenano-example/supermini/.pio/build/supermini/firmware.uf2
 
-      - name: Upload Artifact
+      # --- Master Firmware ---
+      - name: Build master_firmware
+        run: |
+          cd mcu_firmwares/master_firmware
+          pio run
+
+      - name: Convert Master HEX to UF2
+        run: |
+          python3 uf2conv.py \
+            -i mcu_firmwares/master_firmware/.pio/build/supermini/firmware.hex \
+            -c -f 0xADA52840 \
+            -o mcu_firmwares/master_firmware/.pio/build/supermini/master_firmware.uf2
+
+      - name: Upload Master ZIP
         uses: actions/upload-artifact@v5
         with:
-          name: supermini-firmware
-          path: |
-            nicenano-example/supermini/.pio/build/supermini/firmware.zip
-            nicenano-example/supermini/.pio/build/supermini/firmware.uf2
+          name: master_firmware-archive
+          path: mcu_firmwares/master_firmware/.pio/build/supermini/firmware.zip
+
+      - name: Upload Master UF2
+        uses: actions/upload-artifact@v5
+        with:
+          name: master_firmware-uf2
+          path: mcu_firmwares/master_firmware/.pio/build/supermini/master_firmware.uf2
+
+      # --- Target Firmware ---
+      - name: Build target_firmware
+        run: |
+          cd mcu_firmwares/target_firmware
+          pio run
+
+      - name: Convert Target HEX to UF2
+        run: |
+          python3 uf2conv.py \
+            -i mcu_firmwares/target_firmware/.pio/build/supermini/firmware.hex \
+            -c -f 0xADA52840 \
+            -o mcu_firmwares/target_firmware/.pio/build/supermini/target_firmware.uf2
+
+      - name: Upload Target ZIP
+        uses: actions/upload-artifact@v5
+        with:
+          name: target_firmware-archive
+          path: mcu_firmwares/target_firmware/.pio/build/supermini/firmware.zip
+
+      - name: Upload Target UF2
+        uses: actions/upload-artifact@v5
+        with:
+          name: target_firmware-uf2
+          path: mcu_firmwares/target_firmware/.pio/build/supermini/target_firmware.uf2
