@@ -137,7 +137,7 @@ void pulseReset() {
 void enterFlashMode() {
   Serial.println("Master: FLASH command received.");
   pulseReset();
-  delay(200);
+  delay(500);
   pulseReset();
 }
 
@@ -153,7 +153,8 @@ void loop() {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
     if (cmd.equalsIgnoreCase("INIT")) {
-      if (state == STATE_HANDSHAKE) {
+      if (state == STATE_HANDSHAKE || state == STATE_WAIT_BUTTON || state == STATE_FAIL || state == STATE_SUCCESS) {
+        pulseReset();
         Serial.println("Master: READY");
         toState(STATE_WAIT_BUTTON);
       }
@@ -204,7 +205,6 @@ void loop() {
       if (startRequested) {
         startRequested = false;
         Serial.println("Master: START");
-        pulseReset();
         precheckAllHighOk = false;
         precheckAllLowOk = false;
         expectedIndex = 0;

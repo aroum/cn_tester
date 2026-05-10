@@ -697,6 +697,9 @@ class MainWindow(QWidget):
         self._master_idle_seen: bool = False
         self._target_idle_seen: bool = False
         self._await_target_ready: bool = False
+        self._master_ready = False
+        self._target_ready = False
+        self._last_action = None
 
         # Restart readers on selection change
         self.master_combo.currentTextChanged.connect(self.restart_readers)
@@ -709,12 +712,13 @@ class MainWindow(QWidget):
     def _set_combo_to_device(self, combo: QComboBox, device: str | None):
         if not device:
             return
+        device = device.strip().lower()
         try:
             count = combo.count()
             for i in range(count):
                 text = combo.itemText(i)
                 dev = parse_device_from_item(text) or ""
-                if dev == device:
+                if dev.strip().lower() == device:
                     combo.setCurrentIndex(i)
                     return
         except Exception:
@@ -914,35 +918,28 @@ class MainWindow(QWidget):
     def on_run_test(self):
         self.problem_pins.clear()
         self.set_testing_state()
-        # Clear logs when starting a new test from UI
         self.clear_logs()
-        # Button colors per spec: Run is yellow during test
+        
+        self._master_ready = False
+        self._target_ready = False
 
         try:
-            # Preserve flash_run context if active; otherwise mark standalone run
             if getattr(self, "_last_action", "") != "flash_run":
                 self._last_action = "run"
             self._set_btn_state(self.btn_run, "busy")
             if getattr(self, "_last_action", "") == "flash_run":
-                # In combined flow keep Flash&&Run yellow; leave Flash as is (reflecting flash result)
                 self._set_btn_state(self.btn_flash_run, "busy")
             else:
-                # Standalone run: other buttons are default
                 self._set_btn_state(self.btn_flash, "idle")
                 self._set_btn_state(self.btn_flash_run, "idle")
         except Exception:
             pass
-        # Send START command to the selected Master port
-        ok = False
-        try:
-            if self.master_reader:
-                ok = self.master_reader.send_line("START")
-        except Exception:
-            ok = False
-        if not ok:
-            ok = send_command_to_port_item(self.master_combo.currentText(), "START\n")
-            if not ok:
-                self.mark_combo_error(self.master_combo)
+
+        # Send INIT to both to synchronize
+        if self.master_reader:
+            self.master_reader.send_line("INIT")
+        if self.target_reader:
+            self.target_reader.send_line("INIT")
 
     def on_flash_and_run(self):
         """Flash Target asynchronously, refresh Target COM, then auto-start the test when ready."""
@@ -1012,6 +1009,8 @@ class MainWindow(QWidget):
     def on_auto_search(self):
         self.btn_auto_search.setEnabled(False)
         self.btn_auto_search.setText("Searching...")
+        self.master_log.appendPlainText("Auto-search started...")
+        self.target_log.appendPlainText("Auto-search started...")
         QApplication.processEvents()
         
         try:
@@ -1020,12 +1019,22 @@ class MainWindow(QWidget):
             refresh_ports_for(self.master_combo)
             refresh_ports_for(self.target_combo)
             
+            found_any = False
             if ports["master"]:
+                self.master_log.appendPlainText(f"Auto-search: found Master on {ports['master']}")
                 self._set_combo_to_device(self.master_combo, ports["master"])
+                found_any = True
+            else:
+                self.master_log.appendPlainText("Auto-search: Master not found")
+
             if ports["target"]:
+                self.target_log.appendPlainText(f"Auto-search: found Target on {ports['target']}")
                 self._set_combo_to_device(self.target_combo, ports["target"])
+                found_any = True
+            else:
+                self.target_log.appendPlainText("Auto-search: Target not found")
                 
-            if ports["master"] or ports["target"]:
+            if found_any:
                 self.restart_readers()
         finally:
             self.btn_auto_search.setEnabled(True)
@@ -1072,9 +1081,12 @@ class MainWindow(QWidget):
         return pins
 
     def on_serial_line(self, role: str, line: str):
+        uline = line.upper()
         # Validate message source
         if role == "master":
             if "Hello! I am Master!" in line:
+                self._master_ready = False
+                self.box_master_ready.set_color(QColor(255, 0, 0)) # reset to red
                 if self.master_reader:
                     self.master_reader.send_line("INIT")
                 return
@@ -1083,6 +1095,8 @@ class MainWindow(QWidget):
                 return
         elif role == "target":
             if "Hello! I am Target!" in line:
+                self._target_ready = False
+                self.box_target_ready.set_color(QColor(255, 0, 0)) # reset to red
                 if self.target_reader:
                     self.target_reader.send_line("INIT")
                 return
@@ -1099,7 +1113,19 @@ class MainWindow(QWidget):
         else:
             return
 
-        uline = line.upper()
+        if "READY" in uline:
+            if role == "master":
+                self._master_ready = True
+                self.box_master_ready.set_color(QColor(0, 200, 0))
+            elif role == "target":
+                self._target_ready = True
+                self.box_target_ready.set_color(QColor(0, 200, 0))
+            
+            if self._master_ready and self._target_ready:
+                if getattr(self, "_last_action", "") in ("run", "flash_run"):
+                    if self.master_reader:
+                        self.master_reader.send_line("START")
+            return
 
         # READY indicator and logging with suppression of repeated 'STAGE — IDLE: OK'
         try:

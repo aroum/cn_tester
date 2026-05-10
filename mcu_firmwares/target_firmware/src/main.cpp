@@ -83,25 +83,27 @@ void loop() {
     cmd.trim();
 
     if (cmd.equalsIgnoreCase("INIT")) {
-      if (state == STATE_HANDSHAKE) {
-        state = STATE_IDLE;
-        Serial.println("Target: READY");
-        digitalWrite(LED_STATUS_PIN, LOW);
-      }
+      state = STATE_IDLE;
+      Serial.println("Target: READY");
+      digitalWrite(LED_STATUS_PIN, LOW);
     } else if (cmd.equalsIgnoreCase("START_ALL_HIGH")) {
+      state = STATE_IDLE; // auto-transition if INIT was missed
       Serial.println("Target: STAGE — ALL_HIGH: BEGIN");
       setAll(HIGH);
       digitalWrite(LED_STATUS_PIN, HIGH);
       Serial.println("Target: STAGE — ALL_HIGH: OK");
     } else if (cmd.equalsIgnoreCase("START_ALL_LOW")) {
+      state = STATE_IDLE;
       Serial.println("Target: STAGE — ALL_LOW: BEGIN");
       setAll(LOW);
       digitalWrite(LED_STATUS_PIN, LOW);
       Serial.println("Target: STAGE — ALL_LOW: OK");
     } else if (cmd.equalsIgnoreCase("START_SEQUENCE")) {
+      state = STATE_IDLE;
       Serial.println("Target: STAGE — SEQUENCE: BEGIN");
       seqIndex = 0;
     } else if (cmd.equalsIgnoreCase("NEXT_PIN")) {
+      state = STATE_IDLE;
       if (seqIndex < NUM_TEST_PINS) {
           digitalWrite(TEST_PINS[seqIndex], HIGH);
           delay(SEQ_HIGH_MS);
