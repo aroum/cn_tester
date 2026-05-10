@@ -34,6 +34,7 @@ try:
         attach_auto_refresh,
         send_command_to_port_item,
         parse_device_from_item,
+        discover_mcu_ports,
     )
 except Exception:
     try:
@@ -42,6 +43,7 @@ except Exception:
             attach_auto_refresh,
             send_command_to_port_item,
             parse_device_from_item,
+            discover_mcu_ports,
         )
     except Exception:
         from com_ports import (
@@ -49,6 +51,7 @@ except Exception:
             attach_auto_refresh,
             send_command_to_port_item,
             parse_device_from_item,
+            discover_mcu_ports,
         )
 
 
@@ -552,11 +555,14 @@ class MainWindow(QWidget):
         self.master_combo = QComboBox(None)
         self.target_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.master_combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.btn_auto_search = QPushButton("Auto Search")
+        self.btn_auto_search.setFont(group_font)
 
         ports_layout.addWidget(QLabel("Target:"))
         ports_layout.addWidget(self.target_combo)
         ports_layout.addWidget(QLabel("Master:"))
         ports_layout.addWidget(self.master_combo)
+        ports_layout.addWidget(self.btn_auto_search)
 
         # Buttons group
         buttons_group = QWidget(None)
@@ -677,6 +683,7 @@ class MainWindow(QWidget):
         self.btn_flash.clicked.connect(self.on_flash)
         self.btn_run.clicked.connect(self.on_run_test)
         self.btn_flash_run.clicked.connect(self.on_flash_and_run)
+        self.btn_auto_search.clicked.connect(self.on_auto_search)
 
         # Refresh ports when user opens a dropdown, and reset error style
         attach_auto_refresh(self.master_combo)
@@ -1002,6 +1009,28 @@ class MainWindow(QWidget):
         except Exception:
             pass
 
+    def on_auto_search(self):
+        self.btn_auto_search.setEnabled(False)
+        self.btn_auto_search.setText("Searching...")
+        QApplication.processEvents()
+        
+        try:
+            ports = discover_mcu_ports()
+            # Refresh lists first to make sure new ports are there
+            refresh_ports_for(self.master_combo)
+            refresh_ports_for(self.target_combo)
+            
+            if ports["master"]:
+                self._set_combo_to_device(self.master_combo, ports["master"])
+            if ports["target"]:
+                self._set_combo_to_device(self.target_combo, ports["target"])
+                
+            if ports["master"] or ports["target"]:
+                self.restart_readers()
+        finally:
+            self.btn_auto_search.setEnabled(True)
+            self.btn_auto_search.setText("Auto Search")
+
     def restart_readers(self):
         # stop existing
         for role in ("master", "target"):
@@ -1045,10 +1074,18 @@ class MainWindow(QWidget):
     def on_serial_line(self, role: str, line: str):
         # Validate message source
         if role == "master":
+            if "Hello! I am Master!" in line:
+                if self.master_reader:
+                    self.master_reader.send_line("INIT")
+                return
             if not line.startswith("Master"):
                 self.mark_combo_error(self.master_combo)
                 return
         elif role == "target":
+            if "Hello! I am Target!" in line:
+                if self.target_reader:
+                    self.target_reader.send_line("INIT")
+                return
             if not line.startswith("Target"):
                 self.mark_combo_error(self.target_combo)
                 return
@@ -1092,10 +1129,16 @@ class MainWindow(QWidget):
         if role != "master":
             return
 
+        if "BUTTON_PRESSED" in uline:
+            self.on_run_test()
+            return
+
         if "START" in uline:
-            # Only react if test was initiated from UI (Run / Flash&&Run)
+            # Only react if test was initiated from UI or physical button
             if getattr(self, "_last_action", "") not in ("run", "flash_run"):
-                return
+                # If it was button press, we set action to run
+                self._last_action = "run"
+            
             self.problem_pins.clear()
             self.set_testing_state()
             self.pinout_view.set_circles_testing()
@@ -1108,7 +1151,10 @@ class MainWindow(QWidget):
         text_highlight_color = palette.color(QPalette.WindowText)
         # stage updates
         if "ALL_HIGH" in uline:
-            if "BEGIN" in uline:
+            if "AWAIT" in uline:
+                if self.master_reader: self.master_reader.send_line("START_ALL_HIGH")
+                if self.target_reader: self.target_reader.send_line("START_ALL_HIGH")
+            elif "BEGIN" in uline:
                 self.box_all_high.set_color(QColor(255, 255, 0))
             elif "OK" in uline:
                 self.box_all_high.set_color(QColor(0, 200, 0))
@@ -1131,7 +1177,10 @@ class MainWindow(QWidget):
             return
 
         if "ALL_LOW" in uline:
-            if "BEGIN" in uline:
+            if "AWAIT" in uline:
+                if self.master_reader: self.master_reader.send_line("START_ALL_LOW")
+                if self.target_reader: self.target_reader.send_line("START_ALL_LOW")
+            elif "BEGIN" in uline:
                 self.box_all_low.set_color(QColor(255, 255, 0))
             elif "OK" in uline:
                 self.box_all_low.set_color(QColor(0, 200, 0))
@@ -1153,7 +1202,13 @@ class MainWindow(QWidget):
             return
 
         if "SEQUENCE" in uline:
-            if "BEGIN" in uline:
+            if "AWAIT_PIN" in uline:
+                if self.master_reader: self.master_reader.send_line("NEXT_PIN")
+                if self.target_reader: self.target_reader.send_line("NEXT_PIN")
+            elif "AWAIT" in uline:
+                if self.master_reader: self.master_reader.send_line("START_SEQUENCE")
+                if self.target_reader: self.target_reader.send_line("START_SEQUENCE")
+            elif "BEGIN" in uline:
                 self.box_sequence.set_color(QColor(255, 255, 0))
             elif "ALL OK" in uline or ("OK" in uline and "ALL" in uline):
                 self.box_sequence.set_color(QColor(0, 200, 0))

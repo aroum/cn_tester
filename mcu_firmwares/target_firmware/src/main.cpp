@@ -2,20 +2,20 @@
  * Target firmware for nRF52840.
  *
  * Drives the test harness through three stages:
- * 1) ALL_HIGH — drive all pins HIGH and hold for HOLD_ALL_HIGH_MS.
- * 2) ALL_LOW  — drive all pins LOW and hold for HOLD_ALL_LOW_MS.
- * 3) SEQUENCE — toggle each pin HIGH/LOW with SEQ_HIGH_MS/SEQ_LOW_MS timing.
+ * 1) ALL_HIGH — drive all pins HIGH.
+ * 2) ALL_LOW  — drive all pins LOW.
+ * 3) SEQUENCE — toggle each pin HIGH/LOW.
  *
- * Prints status lines to Serial consumed by the Master.
+ * Each stage is triggered by an app command.
  */
 #include <Arduino.h>
 
-#define LED_STATUS_PIN P0_15  // status LED: ON during ALL_HIGH stage
+#define LED_STATUS_PIN P0_15  // status LED
 #define VCC_CTRL_PIN   P0_13  // Target controls external power
 
 // Dynamic lines (exact same order as Master TEST_PINS)
 const int TEST_PINS[] = {
-  VCC_CTRL_PIN, // P0_13 (VCC) — externally powered rail controlled as a regular line
+  VCC_CTRL_PIN, // P0_13 (VCC)
   P0_31,
   P0_29,
   P0_02,
@@ -38,75 +38,93 @@ const int TEST_PINS[] = {
 const int NUM_TEST_PINS = sizeof(TEST_PINS) / sizeof(TEST_PINS[0]);
 
 // Protocol timings
-const int HOLD_ALL_HIGH_MS = 2500; // hold all HIGH so Master can sample
-const int HOLD_ALL_LOW_MS  = 2500; // hold all LOW so Master can sample
 const int SEQ_HIGH_MS      = 150;  // HIGH duration for each pin in sequence
 const int SEQ_LOW_MS       = 150;  // LOW pause between sequence elements
 
-/**
- * Drive all test pins to the provided logic level.
- * @param level Use `HIGH` or `LOW`.
- */
+enum State {
+  STATE_HANDSHAKE,
+  STATE_IDLE
+};
+
+State state = STATE_HANDSHAKE;
+unsigned long lastBlinkMs = 0;
+
 void setAll(int level) {
   for (int i = 0; i < NUM_TEST_PINS; i++) {
     digitalWrite(TEST_PINS[i], level);
   }
 }
 
-/**
- * Initialize Serial and pins, then execute the test sequence once.
- * Emits "Target: READY" followed by stage markers.
- */
 void setup() {
   Serial.begin(115200);
 #if defined(USBCON)
   unsigned long t0 = millis();
   while (!Serial && (millis() - t0) < 3000) { delay(10); }
 #endif
-  Serial.println("Target: READY");
 
   pinMode(LED_STATUS_PIN, OUTPUT);
   digitalWrite(LED_STATUS_PIN, LOW);
 
   pinMode(VCC_CTRL_PIN, OUTPUT);
-  digitalWrite(VCC_CTRL_PIN, LOW); // external target power disabled by default
+  digitalWrite(VCC_CTRL_PIN, LOW);
 
   for (int i = 0; i < NUM_TEST_PINS; i++) {
     pinMode(TEST_PINS[i], OUTPUT);
     digitalWrite(TEST_PINS[i], LOW);
   }
-
-  // Stage 1 — all HIGH
-  Serial.println("Target: STAGE — ALL_HIGH: BEGIN");
-  setAll(HIGH);
-  digitalWrite(LED_STATUS_PIN, HIGH);
-  delay(HOLD_ALL_HIGH_MS);
-  Serial.println("Target: STAGE — ALL_HIGH: OK");
-
-  // Stage 2 — all LOW
-  Serial.println("Target: STAGE — ALL_LOW: BEGIN");
-  setAll(LOW);
-  digitalWrite(LED_STATUS_PIN, LOW);
-  delay(HOLD_ALL_LOW_MS);
-  Serial.println("Target: STAGE — ALL_LOW: OK");
-
-  // Stage 3 — per-pin sequence
-  Serial.println("Target: STAGE — SEQUENCE: BEGIN");
-  for (int i = 0; i < NUM_TEST_PINS; i++) {
-    digitalWrite(TEST_PINS[i], HIGH);
-    delay(SEQ_HIGH_MS);
-    digitalWrite(TEST_PINS[i], LOW);
-    delay(SEQ_LOW_MS);
-  }
-  Serial.println("Target: STAGE — SEQUENCE: ALL OK");
-//   delay(100);
 }
 
-/**
- * Send periodic idle status line. Master uses this as a heartbeat.
- */
 void loop() {
-  Serial.println("Target: STAGE — IDLE: OK");
+  unsigned long now = millis();
+  static int seqIndex = 0;
+
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+
+    if (cmd.equalsIgnoreCase("INIT")) {
+      if (state == STATE_HANDSHAKE) {
+        state = STATE_IDLE;
+        Serial.println("Target: READY");
+        digitalWrite(LED_STATUS_PIN, LOW);
+      }
+    } else if (cmd.equalsIgnoreCase("START_ALL_HIGH")) {
+      Serial.println("Target: STAGE — ALL_HIGH: BEGIN");
+      setAll(HIGH);
+      digitalWrite(LED_STATUS_PIN, HIGH);
+      Serial.println("Target: STAGE — ALL_HIGH: OK");
+    } else if (cmd.equalsIgnoreCase("START_ALL_LOW")) {
+      Serial.println("Target: STAGE — ALL_LOW: BEGIN");
+      setAll(LOW);
+      digitalWrite(LED_STATUS_PIN, LOW);
+      Serial.println("Target: STAGE — ALL_LOW: OK");
+    } else if (cmd.equalsIgnoreCase("START_SEQUENCE")) {
+      Serial.println("Target: STAGE — SEQUENCE: BEGIN");
+      seqIndex = 0;
+    } else if (cmd.equalsIgnoreCase("NEXT_PIN")) {
+      if (seqIndex < NUM_TEST_PINS) {
+          digitalWrite(TEST_PINS[seqIndex], HIGH);
+          delay(SEQ_HIGH_MS);
+          digitalWrite(TEST_PINS[seqIndex], LOW);
+          seqIndex++;
+          if (seqIndex == NUM_TEST_PINS) {
+              Serial.println("Target: STAGE — SEQUENCE: ALL OK");
+          }
+      }
+    }
+  }
+
+  if (state == STATE_HANDSHAKE) {
+    if (now - lastBlinkMs >= 200) {
+      Serial.println("Hello! I am Target!");
+      lastBlinkMs = now;
+      digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+    }
+  } else {
+    // Heartbeat
+    if (now - lastBlinkMs >= 500) {
+        Serial.println("Target: STAGE — IDLE: OK");
+        lastBlinkMs = now;
+    }
+  }
 }
-
-

@@ -1,3 +1,4 @@
+import time
 from PySide6.QtWidgets import QComboBox
 
 try:
@@ -92,3 +93,44 @@ def send_command_to_port_item(item_text: str, command: str, baud: int = 115200, 
 def parse_device_from_item(selected_text: str) -> str | None:
     """Public helper to get device like 'COM5' from combo item text."""
     return _extract_device(selected_text)
+
+
+def discover_mcu_ports(baud: int = 115200, timeout: float = 0.5):
+    """
+    Scan all available COM ports and look for "Hello! I am Master!"
+    or "Hello! I am Target!" messages.
+    Returns a dict: {"master": port_path or None, "target": port_path or None}
+    """
+    results = {"master": None, "target": None}
+    try:
+        import serial
+        from serial.tools import list_ports
+    except Exception:
+        return results
+
+    ports_info = list_ports.comports()
+    for p in ports_info:
+        dev = p.device
+        if results["master"] and results["target"]:
+            break
+        
+        try:
+            # We use a short timeout for discovery
+            with serial.Serial(dev, baudrate=baud, timeout=timeout) as ser:
+                # Read for a bit to see if we get the hello message
+                # We might need to wait a bit or read multiple times
+                start_time = time.time()
+                while time.time() - start_time < 1.0: # give it 1 second per port max
+                    if ser.in_waiting:
+                        line = ser.readline().decode('utf-8', errors='ignore').strip()
+                        if "Hello! I am Master!" in line:
+                            results["master"] = dev
+                            break
+                        if "Hello! I am Target!" in line:
+                            results["target"] = dev
+                            break
+                    time.sleep(0.1)
+        except Exception:
+            continue
+            
+    return results

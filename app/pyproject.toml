@@ -1,0 +1,11 @@
+[project]
+name = "app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "adafruit-nrfutil>=0.5.3.post16",
+    "pyserial~=3.5",
+    "pyside6~=6.9.2",
+]

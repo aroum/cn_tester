@@ -43,26 +43,31 @@ The system is designed for quick, repeatable functional checks. The Master MCU a
 
 ### Test Sequence
 
-The program waits for both the Master and Target MCUs to signal readiness. Once ready, the following sequence of basic electrical tests is performed:
+The system uses an orchestrated handshake process to ensure reliable communication. On power-up, both MCUs send discovery messages. Once the application identifies and initializes the ports, the following sequence is performed under direct application control:
 
-1. **All Pins HIGH:** Verifies the ability of all pins on the Target MCU to be driven to a logic HIGH state.
+1. **Handshake & Initialization:** The application scans all COM ports (via **Auto Search** or manual selection), identifies the Master and Target, and sends an `INIT` command to synchronize them.
 
-2. **All Pins LOW:** Verifies the ability of all pins on the Target MCU to be driven to a logic LOW state.
+2. **All Pins HIGH:** The application commands both MCUs to enter the `ALL_HIGH` stage. The Target drives all pins HIGH, and the Master verifies the connectivity.
 
-3. **Individual Pin Check:** Each I/O pin is individually tested for its ability to transition between HIGH and LOW and to be correctly read by the Master MCU.
+3. **All Pins LOW:** The application commands both MCUs to enter the `ALL_LOW` stage. The Target drives all pins LOW, and the Master verifies the state.
 
-### Test Indicators (Current State)
+4. **Individual Pin Sequence:** The application orchestrates a per-pin sequence. It commands the Target to toggle a specific pin and then commands the Master to verify that specific pin's state. This step-by-step approach ensures maximum reliability and clear diagnostic feedback.
 
-The dedicated LED indicator on the PCB is included in the hardware design but is **not yet functional**. For now, focus on the indicators in the application and the standard LEDs of the microcontrollers.
+### Test Indicators
+
+* **GUI Indicators:** The application provides real-time feedback for each test stage (All High, All Low, Sequence).
+* **Pinout View:** A dynamic visualization shows exactly which pins passed or failed the test.
+* **Master Hardware Button:** You can start the test by pressing the physical button on the Master MCU after it has been initialized by the application.
 
 ### Workflow for Testing a New Target
 
 1. Connect the **Master MCU** to the host computer.
 2. Open the **c!n tester** application.
-3. Connect the new **Target MCU** (the device to be tested).
-4. Click the **"Flash & Run"** button.
-5. Wait for the test completion and observe the indicator status.
-6. Insert a new Target MCU for the next test cycle.
+3. Connect the new **Target MCU**.
+4. Click **"Auto Search"** to automatically find and initialize both MCUs.
+5. Click **"Run Test"** in the app OR press the physical **Button** on the Master MCU.
+6. Wait for the test completion and observe the results in the Pinout View.
+7. Insert a new Target MCU and repeat.
 
 For now, the Master MCU is flashed manually using a uf2 file. Put the MCU into bootloader mode and copy the file to it.
 
