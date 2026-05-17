@@ -10,41 +10,20 @@
  */
 #include <Arduino.h>
 
-#define LED_STATUS_PIN P0_15  // status LED
-#define VCC_CTRL_PIN   P0_13  // Target controls external power
+#define LED_STATUS_PIN P0_15 // status LED
+#define VCC_CTRL_PIN P0_13   // Target controls external power
 
 // Dynamic lines (exact same order as Master TEST_PINS)
-const int TEST_PINS[] = {
-  VCC_CTRL_PIN, // P0_13 (VCC)
-  P0_31,
-  P0_29,
-  P0_02,
-  P1_15,
-  P1_13,
-  P1_11,
-  P0_10,
-  P0_09,
-  P1_06,
-  P1_04,
-  P0_11,
-  P1_00,
-  P0_24,
-  P0_22,
-  P0_20,
-  P0_17,
-  P0_08,
-  P0_06
-};
+const int TEST_PINS[] = {VCC_CTRL_PIN, // P0_13 (VCC)
+                         P0_31,        P0_29, P0_02, P1_15, P1_13, P1_11,
+                         P0_10,        P0_09, P1_06, P1_04, P0_11, P1_00,
+                         P0_24,        P0_22, P0_20, P0_17, P0_08, P0_06};
 const int NUM_TEST_PINS = sizeof(TEST_PINS) / sizeof(TEST_PINS[0]);
 
 // Protocol timings
-const int SEQ_HIGH_MS      = 150;  // HIGH duration for each pin in sequence
-const int SEQ_LOW_MS       = 150;  // LOW pause between sequence elements
+const int SEQ_MS = 150; // duration for each pin in sequence
 
-enum State {
-  STATE_HANDSHAKE,
-  STATE_IDLE
-};
+enum State { STATE_HANDSHAKE, STATE_IDLE };
 
 State state = STATE_HANDSHAKE;
 unsigned long lastBlinkMs = 0;
@@ -59,7 +38,9 @@ void setup() {
   Serial.begin(115200);
 #if defined(USBCON)
   unsigned long t0 = millis();
-  while (!Serial && (millis() - t0) < 3000) { delay(10); }
+  while (!Serial && (millis() - t0) < 3000) {
+    delay(10);
+  }
 #endif
 
   pinMode(LED_STATUS_PIN, OUTPUT);
@@ -105,13 +86,13 @@ void loop() {
     } else if (cmd.equalsIgnoreCase("NEXT_PIN")) {
       state = STATE_IDLE;
       if (seqIndex < NUM_TEST_PINS) {
-          digitalWrite(TEST_PINS[seqIndex], HIGH);
-          delay(SEQ_HIGH_MS);
-          digitalWrite(TEST_PINS[seqIndex], LOW);
-          seqIndex++;
-          if (seqIndex == NUM_TEST_PINS) {
-              Serial.println("Target: STAGE — SEQUENCE: ALL OK");
-          }
+        digitalWrite(TEST_PINS[seqIndex], HIGH);
+        delay(SEQ_MS);
+        digitalWrite(TEST_PINS[seqIndex], LOW);
+        seqIndex++;
+        if (seqIndex == NUM_TEST_PINS) {
+          Serial.println("Target: STAGE — SEQUENCE: ALL OK");
+        }
       }
     }
   }
@@ -125,8 +106,8 @@ void loop() {
   } else {
     // Heartbeat
     if (now - lastBlinkMs >= 500) {
-        Serial.println("Target: STAGE — IDLE: OK");
-        lastBlinkMs = now;
+      Serial.println("Target: STAGE — IDLE: OK");
+      lastBlinkMs = now;
     }
   }
 }

@@ -2,60 +2,27 @@
 #include <Arduino.h>
 
 // --- Special pins ---
-#define LED_STATUS_PIN    P0_15
-#define LED_PCB_PIN       P0_13
-#define BUTTON_PIN        P1_02
-#define RESET_SENDER_PIN  P1_01
+#define LED_STATUS_PIN P0_15
+#define LED_PCB_PIN P0_13
+#define BUTTON_PIN P1_02
+#define RESET_SENDER_PIN P1_01
 
 // Master reads external Target power on P1_07; Target controls it via P0_13
 const int VCC_PIN = P1_07; // Target power monitor
 
 // Dynamic test pins (order is important and synchronized with Target)
-const int TEST_PINS[] = {
-  VCC_PIN,  // P1_07 (VCC) — externally controlled power, checked as a regular line
-  P0_31,
-  P0_29,
-  P0_02,
-  P1_15,
-  P1_13,
-  P1_11,
-  P0_10,
-  P0_09,
-  P1_06,
-  P1_04,
-  P0_11,
-  P1_00,
-  P0_24,
-  P0_22,
-  P0_20,
-  P0_17,
-  P0_08,
-  P0_06
-};
+const int TEST_PINS[] = {VCC_PIN, // P1_07 (VCC) — externally controlled power,
+                                  // checked as a regular line
+                         P0_31,   P0_29, P0_02, P1_15, P1_13, P1_11,
+                         P0_10,   P0_09, P1_06, P1_04, P0_11, P1_00,
+                         P0_24,   P0_22, P0_20, P0_17, P0_08, P0_06};
 const int NUM_TEST_PINS = sizeof(TEST_PINS) / sizeof(TEST_PINS[0]);
 
 // Labels for console printing (must match TEST_PINS order)
-const char* TEST_LABELS[] = {
-  "P1_07(VCC)",
-  "P0_31",
-  "P0_29",
-  "P0_02",
-  "P1_15",
-  "P1_13",
-  "P1_11",
-  "P0_10",
-  "P0_09",
-  "P1_06",
-  "P1_04",
-  "P0_11",
-  "P1_00",
-  "P0_24",
-  "P0_22",
-  "P0_20",
-  "P0_17",
-  "P0_08",
-  "P0_06"
-};
+const char *TEST_LABELS[] = {"P1_07(VCC)", "P0_31", "P0_29", "P0_02", "P1_15",
+                             "P1_13",      "P1_11", "P0_10", "P0_09", "P1_06",
+                             "P1_04",      "P0_11", "P1_00", "P0_24", "P0_22",
+                             "P0_20",      "P0_17", "P0_08", "P0_06"};
 
 // --- Test states ---
 enum TestState {
@@ -69,9 +36,6 @@ enum TestState {
 };
 
 // --- Timing parameters ---
-const unsigned long PRECHECK_TIMEOUT_MS = 3000;   // wait for ALL_HIGH
-const unsigned long LOW_STAGE_TIMEOUT_MS = 3000;  // wait for ALL_LOW
-const unsigned long SEQUENCE_TIMEOUT_MS = 15000;  // sequence stage total
 const unsigned long DEBOUNCE_MS = 50;
 
 // --- State variables ---
@@ -106,7 +70,9 @@ void setup() {
   Serial.begin(115200);
 #if defined(USBCON)
   unsigned long t0 = millis();
-  while (!Serial && (millis() - t0) < 3000) { delay(10); }
+  while (!Serial && (millis() - t0) < 3000) {
+    delay(10);
+  }
 #endif
   pinMode(LED_STATUS_PIN, OUTPUT);
   pinMode(LED_PCB_PIN, OUTPUT);
@@ -144,7 +110,7 @@ void enterFlashMode() {
 // Main state machine loop: handles serial commands, button, and test stages.
 void loop() {
   unsigned long now = millis();
-  
+
   // Create a buffer for the current scan
   int currentLevels[NUM_TEST_PINS];
 
@@ -153,8 +119,9 @@ void loop() {
     String cmd = Serial.readStringUntil('\n');
     cmd.trim();
     if (cmd.equalsIgnoreCase("INIT")) {
-      if (state == STATE_HANDSHAKE || state == STATE_WAIT_BUTTON || state == STATE_FAIL || state == STATE_SUCCESS) {
-        pulseReset();
+      if (state == STATE_HANDSHAKE || state == STATE_WAIT_BUTTON ||
+          state == STATE_FAIL || state == STATE_SUCCESS) {
+        // pulseReset();
         Serial.println("Master: READY");
         toState(STATE_WAIT_BUTTON);
       }
@@ -183,250 +150,262 @@ void loop() {
   bool pressed = (btn == LOW) && (now - lastButtonEdgeMs > DEBOUNCE_MS);
 
   switch (state) {
-    case STATE_HANDSHAKE: {
-      if (now - lastBlinkMs >= 200) {
-        Serial.println("Hello! I am Master!");
-        lastBlinkMs = now;
-        digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
-      }
-    } break;
+  case STATE_HANDSHAKE: {
+    if (now - lastBlinkMs >= 200) {
+      Serial.println("Hello! I am Master!");
+      lastBlinkMs = now;
+      digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+    }
+  } break;
 
-    case STATE_WAIT_BUTTON: {
-      // Blinking indicates idle; awaiting button or START command
-      if (now - lastBlinkMs >= 500) {
-        Serial.println("Master: STAGE — IDLE: OK");
-        lastBlinkMs = now;
-        digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+  case STATE_WAIT_BUTTON: {
+    // Blinking indicates idle; awaiting button or START command
+    if (now - lastBlinkMs >= 500) {
+      Serial.println("Master: STAGE — IDLE: OK");
+      lastBlinkMs = now;
+      digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+    }
+    if (pressed) {
+      while (digitalRead(BUTTON_PIN) == LOW) {
+        delay(10);
       }
-      if (pressed) {
-        while (digitalRead(BUTTON_PIN) == LOW) { delay(10); }
-        Serial.println("Master: BUTTON_PRESSED");
-      }
-      if (startRequested) {
-        startRequested = false;
-        Serial.println("Master: START");
-        precheckAllHighOk = false;
-        precheckAllLowOk = false;
-        expectedIndex = 0;
-        for (int i = 0; i < NUM_TEST_PINS; i++) pinWasHigh[i] = false;
-        digitalWrite(LED_STATUS_PIN, LOW);
-        beginAllHighPrinted = false;
-        beginFailPrinted = false;
+      Serial.println("Master: BUTTON_PRESSED");
+    }
+    if (startRequested) {
+      startRequested = false;
+      Serial.println("Master: START");
+      precheckAllHighOk = false;
+      precheckAllLowOk = false;
+      expectedIndex = 0;
+      for (int i = 0; i < NUM_TEST_PINS; i++)
+        pinWasHigh[i] = false;
+      digitalWrite(LED_STATUS_PIN, LOW);
+      beginAllHighPrinted = false;
+      beginFailPrinted = false;
 
-        // Reset stage requests
-        startAllHighRequested = false;
-        startAllLowRequested = false;
-        startSequenceRequested = false;
-        nextPinRequested = false;
+      // Reset stage requests
+      startAllHighRequested = false;
+      startAllLowRequested = false;
+      startSequenceRequested = false;
+      nextPinRequested = false;
 
-        toState(STATE_WAIT_ALL_HIGH);
-      }
-    } break;
+      toState(STATE_WAIT_ALL_HIGH);
+    }
+  } break;
 
-    case STATE_WAIT_ALL_HIGH: {
-      // Require: all dynamic lines HIGH (including VCC as a regular line)
-      if (!beginAllHighPrinted) {
-        Serial.println("Master: STAGE — ALL_HIGH: AWAIT");
-        beginAllHighPrinted = true;
-      }
-      
-      if (startAllHighRequested) {
-        startAllHighRequested = false;
-        Serial.println("Master: STAGE — ALL_HIGH: BEGIN");
-        
-        bool allHigh = true;
-        for (int i = 0; i < NUM_TEST_PINS; i++) {
-          currentLevels[i] = digitalRead(TEST_PINS[i]);
-          if (currentLevels[i] != HIGH) allHigh = false;
-        }
+  case STATE_WAIT_ALL_HIGH: {
+    // Require: all dynamic lines HIGH (including VCC as a regular line)
+    if (!beginAllHighPrinted) {
+      Serial.println("Master: STAGE — ALL_HIGH: AWAIT");
+      beginAllHighPrinted = true;
+    }
 
-        if (allHigh) {
-          Serial.println("Master: STAGE — ALL_HIGH: OK");
-          precheckAllHighOk = true;
-          beginAllLowPrinted = false;
-          toState(STATE_WAIT_ALL_LOW);
-        } else {
-          Serial.print("Master: STAGE — ALL_HIGH: ERROR. LOW_PINS: ");
-          bool first = true;
-          for (int i = 0; i < NUM_TEST_PINS; i++) {
-            if (currentLevels[i] == LOW) {
-              if (!first) Serial.print(", ");
-              Serial.print(TEST_LABELS[i]);
-              first = false;
-            }
-          }
-          Serial.println();
-          beginAllLowPrinted = false;
-          toState(STATE_WAIT_ALL_LOW); // continue test regardless
-        }
-      }
-    } break;
+    if (startAllHighRequested) {
+      startAllHighRequested = false;
+      Serial.println("Master: STAGE — ALL_HIGH: BEGIN");
 
-    case STATE_WAIT_ALL_LOW: {
-      // Require: all dynamic lines LOW (including VCC as a regular line)
-      if (!beginAllLowPrinted) {
-        Serial.println("Master: STAGE — ALL_LOW: AWAIT");
-        beginAllLowPrinted = true;
-      }
-
-      if (startAllLowRequested) {
-        startAllLowRequested = false;
-        Serial.println("Master: STAGE — ALL_LOW: BEGIN");
-
-        bool allLow = true;
-        for (int i = 0; i < NUM_TEST_PINS; i++) {
-          currentLevels[i] = digitalRead(TEST_PINS[i]);
-          if (currentLevels[i] != LOW) allLow = false;
-        }
-
-        if (allLow) {
-          Serial.println("Master: STAGE — ALL_LOW: OK");
-          precheckAllLowOk = true;
-          beginSequencePrinted = false;
-          toState(STATE_SEQUENCE);
-        } else {
-          Serial.print("Master: STAGE — ALL_LOW: ERROR. HIGH_PINS: ");
-          bool first = true;
-          for (int i = 0; i < NUM_TEST_PINS; i++) {
-            if (currentLevels[i] == HIGH) {
-              if (!first) Serial.print(", ");
-              Serial.print(TEST_LABELS[i]);
-              first = false;
-            }
-          }
-          Serial.println();
-          beginSequencePrinted = false;
-          toState(STATE_SEQUENCE); // continue test regardless
-        }
-      }
-    } break;
-
-    case STATE_SEQUENCE: {
-      // Ensure exactly one pin goes HIGH at a time, in strict order
-      if (!beginSequencePrinted) {
-        Serial.println("Master: STAGE — SEQUENCE: AWAIT");
-        beginSequencePrinted = true;
-        startSequenceRequested = false;
-        nextPinRequested = false;
-      }
-      
-      if (!startSequenceRequested) {
-          break; // Stay in AWAIT until app says start the sequence
-      }
-
-      // Inside sequence: wait for NEXT_PIN command for each pin
-      if (!nextPinRequested) {
-          static unsigned long lastAwaitPrint = 0;
-          if (now - lastAwaitPrint > 500) {
-              Serial.print("Master: STAGE — SEQUENCE: AWAIT_PIN — ");
-              Serial.println(TEST_LABELS[expectedIndex]);
-              lastAwaitPrint = now;
-          }
-          break;
-      }
-      
-      // NEXT_PIN received: now we check if that pin went high
-      int highCount = 0;
-      int lastHighIdx = -1;
+      bool allHigh = true;
       for (int i = 0; i < NUM_TEST_PINS; i++) {
         currentLevels[i] = digitalRead(TEST_PINS[i]);
-        if (currentLevels[i] == HIGH) {
-          highCount++;
-          lastHighIdx = i;
-        }
+        if (currentLevels[i] != HIGH)
+          allHigh = false;
       }
 
-      if (highCount > 1) {
-        Serial.print("Master: STAGE — SEQUENCE: ERROR. FAIL_PINS: ");
+      if (allHigh) {
+        Serial.println("Master: STAGE — ALL_HIGH: OK");
+        precheckAllHighOk = true;
+        beginAllLowPrinted = false;
+        toState(STATE_WAIT_ALL_LOW);
+      } else {
+        Serial.print("Master: STAGE — ALL_HIGH: ERROR. LOW_PINS: ");
         bool first = true;
         for (int i = 0; i < NUM_TEST_PINS; i++) {
-          if (currentLevels[i] == HIGH) {
-            if (!first) Serial.print(", ");
+          if (currentLevels[i] == LOW) {
+            if (!first)
+              Serial.print(", ");
             Serial.print(TEST_LABELS[i]);
             first = false;
           }
         }
         Serial.println();
+        beginAllLowPrinted = false;
+        toState(STATE_WAIT_ALL_LOW); // continue test regardless
+      }
+    }
+  } break;
+
+  case STATE_WAIT_ALL_LOW: {
+    // Require: all dynamic lines LOW (including VCC as a regular line)
+    if (!beginAllLowPrinted) {
+      Serial.println("Master: STAGE — ALL_LOW: AWAIT");
+      beginAllLowPrinted = true;
+    }
+
+    if (startAllLowRequested) {
+      startAllLowRequested = false;
+      Serial.println("Master: STAGE — ALL_LOW: BEGIN");
+
+      bool allLow = true;
+      for (int i = 0; i < NUM_TEST_PINS; i++) {
+        currentLevels[i] = digitalRead(TEST_PINS[i]);
+        if (currentLevels[i] != LOW)
+          allLow = false;
+      }
+
+      if (allLow) {
+        Serial.println("Master: STAGE — ALL_LOW: OK");
+        precheckAllLowOk = true;
+        beginSequencePrinted = false;
+        toState(STATE_SEQUENCE);
+      } else {
+        Serial.print("Master: STAGE — ALL_LOW: ERROR. HIGH_PINS: ");
+        bool first = true;
+        for (int i = 0; i < NUM_TEST_PINS; i++) {
+          if (currentLevels[i] == HIGH) {
+            if (!first)
+              Serial.print(", ");
+            Serial.print(TEST_LABELS[i]);
+            first = false;
+          }
+        }
+        Serial.println();
+        beginSequencePrinted = false;
+        toState(STATE_SEQUENCE); // continue test regardless
+      }
+    }
+  } break;
+
+  case STATE_SEQUENCE: {
+    // Ensure exactly one pin goes HIGH at a time, in strict order
+    if (!beginSequencePrinted) {
+      Serial.println("Master: STAGE — SEQUENCE: AWAIT");
+      beginSequencePrinted = true;
+      startSequenceRequested = false;
+      nextPinRequested = false;
+    }
+
+    if (!startSequenceRequested) {
+      break; // Stay in AWAIT until app says start the sequence
+    }
+
+    // Inside sequence: wait for NEXT_PIN command for each pin
+    if (!nextPinRequested) {
+      static unsigned long lastAwaitPrint = 0;
+      if (now - lastAwaitPrint > 500) {
+        Serial.print("Master: STAGE — SEQUENCE: AWAIT_PIN — ");
+        Serial.println(TEST_LABELS[expectedIndex]);
+        lastAwaitPrint = now;
+      }
+      break;
+    }
+
+    // NEXT_PIN received: now we check if that pin went high
+    int highCount = 0;
+    int lastHighIdx = -1;
+    for (int i = 0; i < NUM_TEST_PINS; i++) {
+      currentLevels[i] = digitalRead(TEST_PINS[i]);
+      if (currentLevels[i] == HIGH) {
+        highCount++;
+        lastHighIdx = i;
+      }
+    }
+
+    if (highCount > 1) {
+      Serial.print("Master: STAGE — SEQUENCE: ERROR. FAIL_PINS: ");
+      bool first = true;
+      for (int i = 0; i < NUM_TEST_PINS; i++) {
+        if (currentLevels[i] == HIGH) {
+          if (!first)
+            Serial.print(", ");
+          Serial.print(TEST_LABELS[i]);
+          first = false;
+        }
+      }
+      Serial.println();
+      nextPinRequested = false;
+      startSequenceRequested = false;
+      toState(STATE_FAIL);
+      break;
+    }
+
+    if (highCount == 1) {
+      nextPinRequested = false; // consume command
+      Serial.print("Master: STAGE — SEQUENCE: OK — ");
+      Serial.println(TEST_LABELS[lastHighIdx]);
+
+      if (lastHighIdx == expectedIndex) {
+        expectedIndex++;
+        if (expectedIndex == NUM_TEST_PINS) {
+          Serial.println("Master: STAGE — SEQUENCE: ALL OK");
+          digitalWrite(LED_STATUS_PIN, HIGH);
+          startSequenceRequested = false;
+          toState(STATE_SUCCESS);
+        }
+      } else {
+        Serial.print("Master: STAGE — SEQUENCE: ERROR. THE ORDER OF SEQUENCE "
+                     "IS VIOLATED. EXPECTED: ");
+        Serial.print(TEST_LABELS[expectedIndex]);
+        Serial.print(", RECEIVED ");
+        Serial.println(TEST_LABELS[lastHighIdx]);
+        startSequenceRequested = false;
+        toState(STATE_FAIL);
+      }
+    } else {
+      // highCount == 0: wait or timeout
+      if (now - stateStartMs > 5000) { // 5s timeout per pin
+        Serial.print("Master: STAGE — SEQUENCE: ERROR. TIMEOUT. EXPECTED: ");
+        Serial.println(TEST_LABELS[expectedIndex]);
         nextPinRequested = false;
         startSequenceRequested = false;
         toState(STATE_FAIL);
-        break;
       }
+    }
+  } break;
 
-      if (highCount == 1) {
-          nextPinRequested = false; // consume command
-          Serial.print("Master: STAGE — SEQUENCE: OK — ");
-          Serial.println(TEST_LABELS[lastHighIdx]);
+  case STATE_SUCCESS: {
+    // Steady LED — success; wait for new button press
+    Serial.print("Master: STAGE — SUCCESS: OK\n");
+    toState(STATE_WAIT_BUTTON);
+  } break;
 
-          if (lastHighIdx == expectedIndex) {
-            expectedIndex++;
-            if (expectedIndex == NUM_TEST_PINS) {
-              Serial.println("Master: STAGE — SEQUENCE: ALL OK");
-              digitalWrite(LED_STATUS_PIN, HIGH);
-              startSequenceRequested = false;
-              toState(STATE_SUCCESS);
-            }
-          } else {
-            Serial.print("Master: STAGE — SEQUENCE: ERROR. THE ORDER OF SEQUENCE IS VIOLATED. EXPECTED: ");
-            Serial.print(TEST_LABELS[expectedIndex]);
-            Serial.print(", RECEIVED ");
-            Serial.println(TEST_LABELS[lastHighIdx]);
-            startSequenceRequested = false;
-            toState(STATE_FAIL);
-          }
-      } else {
-          // highCount == 0: wait or timeout
-          if (now - stateStartMs > 5000) { // 5s timeout per pin
-              Serial.print("Master: STAGE — SEQUENCE: ERROR. TIMEOUT. EXPECTED: ");
-              Serial.println(TEST_LABELS[expectedIndex]);
-              nextPinRequested = false;
-              startSequenceRequested = false;
-              toState(STATE_FAIL);
-          }
-      }
-    } break;
-
-    case STATE_SUCCESS: {
-      // Steady LED — success; wait for new button press
-      Serial.print("Master: STAGE — SUCCESS: OK\n");
-      toState(STATE_WAIT_BUTTON);
-    } break;
-
-    case STATE_FAIL: {
-      // Fast blinking — failure; wait for button
-      if (!beginFailPrinted) {
-        Serial.println("Master: FAIL");
-        beginFailPrinted = true;
-      }
-      if (now - lastBlinkMs >= 150) {
-        lastBlinkMs = now;
-        digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
-      }
-      if (pressed || startRequested) {
-        if (pressed) {
-          while (digitalRead(BUTTON_PIN) == LOW) { delay(10); }
+  case STATE_FAIL: {
+    // Fast blinking — failure; wait for button
+    if (!beginFailPrinted) {
+      Serial.println("Master: FAIL");
+      beginFailPrinted = true;
+    }
+    if (now - lastBlinkMs >= 150) {
+      lastBlinkMs = now;
+      digitalWrite(LED_STATUS_PIN, !digitalRead(LED_STATUS_PIN));
+    }
+    if (pressed || startRequested) {
+      if (pressed) {
+        while (digitalRead(BUTTON_PIN) == LOW) {
+          delay(10);
         }
-        startRequested = false;
-        Serial.println("Master: START");
-        pulseReset();
-        expectedIndex = 0;
-        for (int i = 0; i < NUM_TEST_PINS; i++) pinWasHigh[i] = false;
-        digitalWrite(LED_STATUS_PIN, LOW);
-        // Reset preparatory flags and BEGIN markers
-        precheckAllHighOk = false;
-        precheckAllLowOk = false;
-        beginAllHighPrinted = false;
-        beginAllLowPrinted = false;
-        beginSequencePrinted = false;
-        beginFailPrinted = false;
-        
-        startAllHighRequested = false;
-        startAllLowRequested = false;
-        startSequenceRequested = false;
-        nextPinRequested = false;
-
-        toState(STATE_WAIT_ALL_HIGH);
       }
-    } break;
+      startRequested = false;
+      Serial.println("Master: START");
+      // pulseReset();
+      expectedIndex = 0;
+      for (int i = 0; i < NUM_TEST_PINS; i++)
+        pinWasHigh[i] = false;
+      digitalWrite(LED_STATUS_PIN, LOW);
+      // Reset preparatory flags and BEGIN markers
+      precheckAllHighOk = false;
+      precheckAllLowOk = false;
+      beginAllHighPrinted = false;
+      beginAllLowPrinted = false;
+      beginSequencePrinted = false;
+      beginFailPrinted = false;
+
+      startAllHighRequested = false;
+      startAllLowRequested = false;
+      startSequenceRequested = false;
+      nextPinRequested = false;
+
+      toState(STATE_WAIT_ALL_HIGH);
+    }
+  } break;
   }
 }
