@@ -8,7 +8,9 @@
  *
  * Each stage is triggered by an app command.
  */
+#include <Adafruit_TinyUSB.h>
 #include <Arduino.h>
+#include <MiniShell.h>
 
 #define LED_STATUS_PIN P0_15 // status LED
 #define VCC_CTRL_PIN P0_13   // Target controls external power

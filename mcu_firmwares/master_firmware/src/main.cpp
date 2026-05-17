@@ -1,5 +1,7 @@
 // Master firmware for NRF52840 nice!nano: ALL_HIGH -> ALL_LOW -> SEQUENCE
+#include <Adafruit_TinyUSB.h>
 #include <Arduino.h>
+#include <MiniShell.h>
 
 // --- Special pins ---
 #define LED_STATUS_PIN P0_15
@@ -13,9 +15,9 @@ const int VCC_PIN = P1_07; // Target power monitor
 // Dynamic test pins (order is important and synchronized with Target)
 const int TEST_PINS[] = {VCC_PIN, // P1_07 (VCC) — externally controlled power,
                                   // checked as a regular line
-                         P0_31,   P0_29, P0_02, P1_15, P1_13, P1_11,
-                         P0_10,   P0_09, P1_06, P1_04, P0_11, P1_00,
-                         P0_24,   P0_22, P0_20, P0_17, P0_08, P0_06};
+                         P0_31, P0_29, P0_02, P1_15, P1_13, P1_11, P0_10, P0_09,
+                         P1_06, P1_04, P0_11, P1_00, P0_24, P0_22, P0_20, P0_17,
+                         P0_08, P0_06};
 const int NUM_TEST_PINS = sizeof(TEST_PINS) / sizeof(TEST_PINS[0]);
 
 // Labels for console printing (must match TEST_PINS order)
