@@ -8,6 +8,13 @@ The **c!n tester** is a dedicated hardware and software solution designed for au
 
 The core testing logic and fundamental functionality are fully operational. However, active development is focused on improving the GUI and enhancing the overall user experience.
 
+> [!IMPORTANT]
+> **Bug Reports & Logging:**
+> * **Any bug reports must be accompanied by logs.** Reports without logs cannot be diagnosed and will be closed.
+> * **How to access logs:** Inside the GUI, click on the **USB connector image** at the center of the pinout visualization. This will open the log view showing real-time console outputs for both Master and Target MCUs.
+> * If the application fails to start entirely, look for the `app_error.log` file created in the same directory as the executable.
+
+
 ## 🧱 Hardware System
 
 ![H032](pics/assembly.jpg)
@@ -99,7 +106,9 @@ The recommended and simplest way to use the application is by using the **pre-co
    * **macOS:** `./cn_tester_app_macos_aarch64`
    * **Windows:** `cn_tester_win_x64.exe`
 
-You can view the logs by clicking on the image of the USB port.
+> [!TIP]
+> To view or copy the logs for debugging, click on the **USB connector image** at the center of the pinout view in the application. See the note on [Bug Reports & Logging](#-project-overview) at the top of this document.
+
   
 ### 🐍 Running from Source (Development)
 
