@@ -41,8 +41,9 @@ jobs:
 
       - name: Convert Master HEX to UF2
         run: |
+          cp mcu_firmwares/master_firmware/.pio/build/supermini/firmware.hex mcu_firmwares/master_firmware/.pio/build/supermini/master_firmware.hex
           python3 uf2conv.py \
-            -i mcu_firmwares/master_firmware/.pio/build/supermini/firmware.hex \
+            -i mcu_firmwares/master_firmware/.pio/build/supermini/master_firmware.hex \
             -c -f 0xADA52840 \
             -o mcu_firmwares/master_firmware/.pio/build/supermini/master_firmware.uf2
 
@@ -51,6 +52,12 @@ jobs:
         with:
           name: master_firmware-archive
           path: mcu_firmwares/master_firmware/.pio/build/supermini/firmware.zip
+
+      - name: Upload Master HEX
+        uses: actions/upload-artifact@v5
+        with:
+          name: master_firmware-hex
+          path: mcu_firmwares/master_firmware/.pio/build/supermini/master_firmware.hex
 
       - name: Upload Master UF2
         uses: actions/upload-artifact@v5
@@ -66,8 +73,9 @@ jobs:
 
       - name: Convert Target HEX to UF2
         run: |
+          cp mcu_firmwares/target_firmware/.pio/build/supermini/firmware.hex mcu_firmwares/target_firmware/.pio/build/supermini/target_firmware.hex
           python3 uf2conv.py \
-            -i mcu_firmwares/target_firmware/.pio/build/supermini/firmware.hex \
+            -i mcu_firmwares/target_firmware/.pio/build/supermini/target_firmware.hex \
             -c -f 0xADA52840 \
             -o mcu_firmwares/target_firmware/.pio/build/supermini/target_firmware.uf2
 
@@ -76,6 +84,12 @@ jobs:
         with:
           name: target_firmware-archive
           path: mcu_firmwares/target_firmware/.pio/build/supermini/firmware.zip
+
+      - name: Upload Target HEX
+        uses: actions/upload-artifact@v5
+        with:
+          name: target_firmware-hex
+          path: mcu_firmwares/target_firmware/.pio/build/supermini/target_firmware.hex
 
       - name: Upload Target UF2
         uses: actions/upload-artifact@v5
